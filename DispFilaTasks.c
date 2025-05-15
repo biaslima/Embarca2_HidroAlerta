@@ -124,6 +124,7 @@ void vDisplayTask(void *params)
                     ssd1306_line(&ssd, 3, 40, 122, 40, true);
                     
                     ssd1306_draw_string(&ssd, "Modo: Normal", 5, 5);
+                    ssd1306_draw_string(&ssd, "Tudo bem!", 32, 26);
                     ssd1306_draw_string(&ssd, pctAgua_str, 5, 42);
                     ssd1306_draw_string(&ssd, pctChuva_str, 5, 52);
                }
@@ -204,18 +205,22 @@ void vMatrizLEDTask(void *params){
 
     while(true){
         if (xQueueReceive(xQueueStatus, &status_atual, portMAX_DELAY) == pdTRUE){
+            int nivel_x = (status_atual.data.x_pos * 100) / 4095;
+            int nivel_y = (status_atual.data.y_pos * 100) / 4095;
+            int nivel = (nivel_x > nivel_y) ? nivel_x : nivel_y;
+            int linhas_ativas = (nivel + 9) / 20;
 
             lastWakeTime = xTaskGetTickCount();
             if (status_atual.alerta_ativo){
-                exibir_padrao(2);
+                exibir_padrao();
                 vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(250));
             } else {
-                exibir_padrao(1);
+                exibir_nivel(linhas_ativas, 0, 0, 30); 
             }
         }
     }
-
 }
+
 // Modo BOOTSEL com botão B
 #include "pico/bootrom.h"
 #define botaoB 6

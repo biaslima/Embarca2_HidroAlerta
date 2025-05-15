@@ -55,31 +55,34 @@ void update_leds(PIO pio_inst, uint sm_num) {
         pio_sm_put_blocking(pio_inst, sm_num, leds[i] << 8u);
     }
 }
-void exibir_padrao(uint8_t padrao) {
+void exibir_padrao() {
     clear_matrix(pio, sm);
-    
-    switch(padrao) {
-        case 1: // Tudo bem
-            for (int i = 0; i < NUM_LEDS; i++) {
-                leds[i] = create_color(0, 0, 30); // Luz amarelada
-            }
-            break;
-        case 2: // Modo alerta
-            if (led_estado) {
-                for (int i = 0; i < NUM_LEDS; i++) {
-                    leds[i] = create_color(0, 80, 0); // Vermelho quando ligado
-                }
-            } else {
-                for (int i = 0; i < NUM_LEDS; i++) {
-                    leds[i] = 0;
-                }
-            }
-            led_estado = !led_estado;
-            break;
 
-        default:
-            break;
+    if (led_estado) {
+        for (int i = 0; i < NUM_LEDS; i++) {
+            leds[i] = create_color(0, 80, 0); // Vermelho quando ligado
+        }
+        } else {
+            for (int i = 0; i < NUM_LEDS; i++) {
+                    leds[i] = 0;
+            }
+        }
+        led_estado = !led_estado;
+        update_leds(pio, sm);
+}
+
+void exibir_nivel(uint8_t linhas, uint8_t r, uint8_t g, uint8_t b) {
+    clear_matrix(pio, sm);
+
+    for (int y = 0; y < 5; y++) {
+        for (int x = 0; x < 5; x++) {
+            int pos = matriz_posicao_xy(x, y); 
+            if (y < linhas) {
+                leds[pos] = create_color(g, r, b); // cuidado: G, R, B
+            } else {
+                leds[pos] = 0;
+            }
+        }
     }
-    
     update_leds(pio, sm);
 }

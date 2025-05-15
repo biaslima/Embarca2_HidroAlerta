@@ -24,6 +24,7 @@ uint8_t matriz_posicao_xy(uint8_t x, uint8_t y);
 uint32_t create_color(uint8_t green, uint8_t red, uint8_t blue);
 void clear_matrix(PIO pio_inst, uint sm_num);
 void update_leds(PIO pio_inst, uint sm_num);
-void exibir_padrao(uint8_t padrao);
+void exibir_nivel(uint8_t linhas, uint8_t r, uint8_t g, uint8_t b);
+void exibir_padrao();
 
 #endif
