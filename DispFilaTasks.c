@@ -17,8 +17,9 @@
 #define endereco 0x3C
 #define ADC_JOYSTICK_X 26
 #define ADC_JOYSTICK_Y 27
-#define LED_BLUE 12
-#define LED_GREEN  11
+#define LED_GREEN 11
+#define LED_RED  13
+#define BUZZER_PIN 21
 #define tam_quad 10
 
 typedef struct
@@ -132,54 +133,63 @@ void vDisplayTask(void *params)
 }
 
 
-void vLedGreenTask(void *params)
+void vLedRGBTask(void *params)
 {
+    gpio_set_function(LED_RED, GPIO_FUNC_PWM);   // Configura GPIO como PWM
+    uint redSlice = pwm_gpio_to_slice_num(LED_RED); // Obtém o slice de PWM
+    pwm_set_wrap(redSlice, 100);                     // Define resolução (0–100)
+    pwm_set_chan_level(redSlice, PWM_CHAN_B, 0);     // Duty inicial
+    pwm_set_enabled(redSlice, true);                 // Ativa PWM
+
     gpio_set_function(LED_GREEN, GPIO_FUNC_PWM);   // Configura GPIO como PWM
-    uint slice = pwm_gpio_to_slice_num(LED_GREEN); // Obtém o slice de PWM
-    pwm_set_wrap(slice, 100);                     // Define resolução (0–100)
-    pwm_set_chan_level(slice, PWM_CHAN_B, 0);     // Duty inicial
-    pwm_set_enabled(slice, true);                 // Ativa PWM
+    uint greenSlice = pwm_gpio_to_slice_num(LED_GREEN); // Obtém o slice de PWM
+    pwm_set_wrap(greenSlice, 100);                     // Define resolução (0–100)
+    pwm_set_chan_level(greenSlice, PWM_CHAN_A, 0);     // Duty inicial
+    pwm_set_enabled(greenSlice, true);                 // Ativa PWM
 
-    joystick_data_t joydata;
+    status_t status_atual;
     while (true)
     {
-        if (xQueueReceive(xQueueJoystickData, &joydata, portMAX_DELAY) == pdTRUE)
-        {
-            // Brilho proporcional ao desvio do centro
-            int16_t desvio_centro = (int16_t)joydata.x_pos - 2000;
-            if (desvio_centro < 0)
-                desvio_centro = -desvio_centro;
-            uint16_t pwm_value = (desvio_centro * 100) / 2048;
-            pwm_set_chan_level(slice, PWM_CHAN_B, pwm_value);
+        if (xQueueReceive(xQueueStatus, &status_atual, portMAX_DELAY) == pdTRUE){
+            int nivel_x = (status_atual.data.x_pos * 100) / 4095;
+            int nivel_y = (status_atual.data.y_pos * 100) / 4095;
+            int nivel_alerta = (nivel_x > nivel_y) ? nivel_x : nivel_y;
+            
+            if (nivel_alerta < 60) {
+                pwm_set_chan_level(greenSlice, PWM_CHAN_B, 100);
+                pwm_set_chan_level(redSlice, PWM_CHAN_B, 0);
+            } else {
+                int progresso = nivel_alerta - 60;
+                if (progresso > 20) progresso = 20; 
+                int vermelho = (progresso * 100) / 20; 
+                int verde = 100 - vermelho;
+
+                pwm_set_chan_level(redSlice, PWM_CHAN_B, vermelho);
+                pwm_set_chan_level(greenSlice, PWM_CHAN_B, verde);
+            }
+            
         }
-        vTaskDelay(pdMS_TO_TICKS(50)); // Atualiza a cada 50ms
+        vTaskDelay(pdMS_TO_TICKS(50)); 
     }
 }
 
-void vLedBlueTask(void *params)
-{
-    gpio_set_function(LED_BLUE, GPIO_FUNC_PWM);   // Configura GPIO como PWM
-    uint slice = pwm_gpio_to_slice_num(LED_BLUE); // Obtém o slice de PWM
-    pwm_set_wrap(slice, 100);                     // Define resolução (0–100)
-    pwm_set_chan_level(slice, PWM_CHAN_A, 0);     // Duty inicial
-    pwm_set_enabled(slice, true);                 // Ativa PWM
+void vBuzzerTask(void *params){
+    buzzer_init(BUZZER_PIN); 
+    status_t status_atual;
+    uint32_t ultima_execucao = 0;
+    const uint32_t intervalo = 600;
 
-    joystick_data_t joydata;
-    while (true)
-    {
-        if (xQueueReceive(xQueueJoystickData, &joydata, portMAX_DELAY) == pdTRUE)
-        {
-            // Brilho proporcional ao desvio do centro
-            int16_t desvio_centro = (int16_t)joydata.y_pos - 2048;
-            if (desvio_centro < 0)
-                desvio_centro = -desvio_centro;
-            uint16_t pwm_value = (desvio_centro * 100) / 2048;
-            pwm_set_chan_level(slice, PWM_CHAN_A, pwm_value);
+    while(true){
+        if (xQueueReceive(xQueueStatus, &status_atual, portMAX_DELAY) == pdTRUE){
+            alarme_loop();
+            if (status_atual.alerta_ativo){
+                tocar_alarme();
+            } else {
+                desligar_alarme();
+            }
         }
-        vTaskDelay(pdMS_TO_TICKS(50)); // Atualiza a cada 50ms
     }
 }
-
 
 // Modo BOOTSEL com botão B
 #include "pico/bootrom.h"
@@ -207,8 +217,8 @@ int main()
     xTaskCreate(vJoystickTask, "Joystick Task", 256, NULL, 1, NULL);
     xTaskCreate(vModoTask, "Modo Task", 256, NULL, 1, NULL);
     xTaskCreate(vDisplayTask, "Display Task", 512, NULL, 1, NULL);
-    xTaskCreate(vLedGreenTask, "LED red Task", 256, NULL, 1, NULL);
-    xTaskCreate(vLedBlueTask, "LED blue Task", 256, NULL, 1, NULL);
+    xTaskCreate(vLedRGBTask, "LED RGB Task", 256, NULL, 1, NULL);
+    xTaskCreate(vBuzzerTask, "Buzzer Task", 256, NULL, 1, NULL);
     // Inicia o agendador
     vTaskStartScheduler();
     panic_unsupported();
