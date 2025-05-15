@@ -8,6 +8,8 @@ static int buzzer_pin;
 static uint slice_num;
 static uint channel;
 bool alarme_ativo = false;
+static uint32_t ultima_execucao = 0;
+static bool estado_buzzer = false;
 
 void buzzer_init(int pin) {
     buzzer_pin = pin;
@@ -25,21 +27,6 @@ void buzzer_init(int pin) {
 }
 
 
-void tocar_frequencia(int frequencia, int duracao_ms) {
-    // Fórmula: wrap = 1_000_000 / frequência
-    uint32_t wrap = 1000000 / frequencia;
-    
-    printf("Tocando frequência %d Hz (wrap=%d)\n", frequencia, wrap);
-    
-    pwm_set_wrap(slice_num, wrap);
-    pwm_set_chan_level(slice_num, channel, wrap / 2);
-    pwm_set_enabled(slice_num, true);
-    
-    sleep_ms(duracao_ms);
-    
-    pwm_set_enabled(slice_num, false);
-}
-
 void buzzer_desliga(int pin){
     pwm_set_enabled(slice_num, false);
     gpio_put(pin, 0);
@@ -55,14 +42,30 @@ void desligar_alarme() {
 }
 
 void alarme_loop() {
-    static uint32_t ultima_execucao = 0;
     uint32_t current_time = to_ms_since_boot(get_absolute_time());
 
-    if (!alarme_ativo) return;
+    if (!alarme_ativo) {
+        if (estado_buzzer) {
+            buzzer_desliga(buzzer_pin);
+            estado_buzzer = false;
+        }
+        return;
+    }
 
-    // A cada 400ms, toca um bipe de 200ms
-    if (current_time - ultima_execucao >= 600) {
-        tocar_frequencia(600, 600); // 1000 Hz por 200 ms
+    // Verifica se passou o intervalo de tempo
+    if (current_time - ultima_execucao >= 350) {
+        estado_buzzer = !estado_buzzer;
         ultima_execucao = current_time;
+        
+        if (estado_buzzer) {
+            // Liga 
+            uint32_t wrap = 1000000 / 700;  
+            pwm_set_wrap(slice_num, wrap);
+            pwm_set_chan_level(slice_num, channel, wrap / 2);
+            pwm_set_enabled(slice_num, true);
+        } else {
+            // Desliga o buzzer
+            buzzer_desliga(buzzer_pin);
+        }
     }
 }

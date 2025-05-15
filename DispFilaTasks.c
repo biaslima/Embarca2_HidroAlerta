@@ -5,6 +5,7 @@
 #include "lib/ssd1306.h"
 #include "lib/font.h"
 #include "lib/buzzer.h"
+#include "lib/matriz_led.h"
 #include "hardware/pwm.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -176,21 +177,45 @@ void vLedRGBTask(void *params)
 void vBuzzerTask(void *params){
     buzzer_init(BUZZER_PIN); 
     status_t status_atual;
-    uint32_t ultima_execucao = 0;
-    const uint32_t intervalo = 600;
+    TickType_t xLastWakeTime;
+
+    xLastWakeTime = xTaskGetTickCount();
 
     while(true){
         if (xQueueReceive(xQueueStatus, &status_atual, portMAX_DELAY) == pdTRUE){
-            alarme_loop();
             if (status_atual.alerta_ativo){
                 tocar_alarme();
             } else {
                 desligar_alarme();
             }
         }
+        alarme_loop();
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
     }
 }
 
+void vMatrizLEDTask(void *params){
+    iniciar_matriz_leds(pio0, 0, led_matrix_pin);
+    clear_matrix(pio0, 0);
+    update_leds(pio, sm);
+
+    status_t status_atual;
+    TickType_t lastWakeTime;
+
+    while(true){
+        if (xQueueReceive(xQueueStatus, &status_atual, portMAX_DELAY) == pdTRUE){
+
+            lastWakeTime = xTaskGetTickCount();
+            if (status_atual.alerta_ativo){
+                exibir_padrao(2);
+                vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(250));
+            } else {
+                exibir_padrao(1);
+            }
+        }
+    }
+
+}
 // Modo BOOTSEL com botão B
 #include "pico/bootrom.h"
 #define botaoB 6
@@ -219,6 +244,7 @@ int main()
     xTaskCreate(vDisplayTask, "Display Task", 512, NULL, 1, NULL);
     xTaskCreate(vLedRGBTask, "LED RGB Task", 256, NULL, 1, NULL);
     xTaskCreate(vBuzzerTask, "Buzzer Task", 256, NULL, 1, NULL);
+    xTaskCreate(vMatrizLEDTask, "Matriz Task", 256, NULL, 1, NULL);
     // Inicia o agendador
     vTaskStartScheduler();
     panic_unsupported();
