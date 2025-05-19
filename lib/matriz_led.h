@@ -8,6 +8,7 @@
 #include "hardware/pio.h"
 #include "hardware/adc.h"
 #include "hardware/i2c.h"
+#include "ws2812.pio.h"
 
 #define NUM_LEDS 25
 #define IS_RGBW false

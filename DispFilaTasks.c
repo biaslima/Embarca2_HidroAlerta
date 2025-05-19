@@ -1,3 +1,4 @@
+//Bibliotecas inclusas
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
 #include "hardware/adc.h"
@@ -12,6 +13,7 @@
 #include "queue.h"
 #include <stdio.h>
 
+//Configuração de pinos
 #define I2C_PORT i2c1
 #define I2C_SDA 14
 #define I2C_SCL 15
@@ -21,23 +23,26 @@
 #define LED_GREEN 11
 #define LED_RED  13
 #define BUZZER_PIN 21
-#define tam_quad 10
 
+//Estrutura de posição do joystick
 typedef struct
 {
     uint16_t x_pos;
     uint16_t y_pos;
 } joystick_data_t;
 
+//Estrutura de informação da enchente
 typedef struct 
 {
     joystick_data_t data;
     bool alerta_ativo;
 } status_t;
 
+//Definição das filas
 QueueHandle_t xQueueJoystickData;
 QueueHandle_t xQueueStatus;
 
+//Tarefa para definir modo (enchente ou não)
 void vModoTask(void *params){
 
     status_t status_atual;
@@ -47,7 +52,7 @@ void vModoTask(void *params){
         if (xQueueReceive(xQueueJoystickData, &joydata, portMAX_DELAY) == pdTRUE){
             uint16_t agua = joydata.y_pos;
             uint16_t chuva = joydata.x_pos;
-            if (agua >= 2866 || chuva >= 3276){
+            if (agua >= 2866 || chuva >= 3276){ //Definição dos numeros de acordo com a porcentagem do enunciado
                 status_atual.data = joydata;
                 status_atual.alerta_ativo = true;
             } else {
@@ -60,6 +65,7 @@ void vModoTask(void *params){
     }
 }
 
+//Tarefa de leitura do ADC do Joystick
 void vJoystickTask(void *params)
 {
     adc_gpio_init(ADC_JOYSTICK_Y);
@@ -81,6 +87,7 @@ void vJoystickTask(void *params)
     }
 }
 
+//Tarefa de exibição de infos no display
 void vDisplayTask(void *params)
 {
     i2c_init(I2C_PORT, 400 * 1000);
@@ -134,7 +141,7 @@ void vDisplayTask(void *params)
     }
 }
 
-
+//Tarefa do LED RGB com PWM
 void vLedRGBTask(void *params)
 {
     gpio_set_function(LED_RED, GPIO_FUNC_PWM);   // Configura GPIO como PWM
@@ -143,11 +150,11 @@ void vLedRGBTask(void *params)
     pwm_set_chan_level(redSlice, PWM_CHAN_B, 0);     // Duty inicial
     pwm_set_enabled(redSlice, true);                 // Ativa PWM
 
-    gpio_set_function(LED_GREEN, GPIO_FUNC_PWM);   // Configura GPIO como PWM
-    uint greenSlice = pwm_gpio_to_slice_num(LED_GREEN); // Obtém o slice de PWM
-    pwm_set_wrap(greenSlice, 100);                     // Define resolução (0–100)
-    pwm_set_chan_level(greenSlice, PWM_CHAN_A, 0);     // Duty inicial
-    pwm_set_enabled(greenSlice, true);                 // Ativa PWM
+    gpio_set_function(LED_GREEN, GPIO_FUNC_PWM);   
+    uint greenSlice = pwm_gpio_to_slice_num(LED_GREEN); 
+    pwm_set_wrap(greenSlice, 100);                     
+    pwm_set_chan_level(greenSlice, PWM_CHAN_A, 0);     
+    pwm_set_enabled(greenSlice, true);                 
 
     status_t status_atual;
     while (true)
@@ -175,6 +182,7 @@ void vLedRGBTask(void *params)
     }
 }
 
+//Tarefa que configura o buzzer
 void vBuzzerTask(void *params){
     buzzer_init(BUZZER_PIN); 
     status_t status_atual;
@@ -185,6 +193,9 @@ void vBuzzerTask(void *params){
     while(true){
         if (xQueueReceive(xQueueStatus, &status_atual, portMAX_DELAY) == pdTRUE){
             if (status_atual.alerta_ativo){
+                bool agua = status_atual.data.y_pos >= 2866;
+                bool chuva = status_atual.data.x_pos >= 3276;
+                atualizar_origem_alerta(agua, chuva);
                 tocar_alarme();
             } else {
                 desligar_alarme();
@@ -195,6 +206,7 @@ void vBuzzerTask(void *params){
     }
 }
 
+//Tarefa que exibe animações na matriz de LED
 void vMatrizLEDTask(void *params){
     iniciar_matriz_leds(pio0, 0, led_matrix_pin);
     clear_matrix(pio0, 0);
@@ -229,6 +241,8 @@ void gpio_irq_handler(uint gpio, uint32_t events)
     reset_usb_boot(0, 0);
 }
 
+
+//Função principal
 int main()
 {
     // Ativa BOOTSEL via botão

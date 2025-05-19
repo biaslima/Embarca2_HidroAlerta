@@ -1,6 +1,4 @@
 #include "matriz_led.h"
-#include "hardware/pio.h"
-#include "ws2812.pio.h"
 
 uint32_t leds[NUM_LEDS];
 PIO pio = pio0;
@@ -8,7 +6,7 @@ int sm = 0;
 
 bool led_estado = true;
 
-
+//Inicia a matriz
 void iniciar_matriz_leds(PIO pio_inst, uint sm_num, uint pin) {
     pio = pio_inst;
     sm = sm_num;
@@ -50,17 +48,20 @@ void clear_matrix(PIO pio_inst, uint sm_num) {
     }
 }
 
+//Atualiza a matriz
 void update_leds(PIO pio_inst, uint sm_num) {
     for (int i = 0; i < NUM_LEDS; i++) {
         pio_sm_put_blocking(pio_inst, sm_num, leds[i] << 8u);
     }
 }
+
+//Exibe padrão específico
 void exibir_padrao() {
     clear_matrix(pio, sm);
 
     if (led_estado) {
         for (int i = 0; i < NUM_LEDS; i++) {
-            leds[i] = create_color(0, 80, 0); // Vermelho quando ligado
+            leds[i] = create_color(0, 80, 0);
         }
         } else {
             for (int i = 0; i < NUM_LEDS; i++) {
@@ -78,7 +79,7 @@ void exibir_nivel(uint8_t linhas, uint8_t r, uint8_t g, uint8_t b) {
         for (int x = 0; x < 5; x++) {
             int pos = matriz_posicao_xy(x, y); 
             if (y < linhas) {
-                leds[pos] = create_color(g, r, b); // cuidado: G, R, B
+                leds[pos] = create_color(g, r, b); 
             } else {
                 leds[pos] = 0;
             }
