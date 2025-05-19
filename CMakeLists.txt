@@ -23,7 +23,7 @@ include(pico_sdk_import.cmake)
 set(FREERTOS_KERNEL_PATH "C:/Users/Anna Beatriz/Documents/EmbarcaTech/FreeRTOS-Kernel")
 include(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/FreeRTOS_Kernel_import.cmake)
 
-project(PiscaLed C CXX ASM)
+project(HidroAlerta C CXX ASM)
 pico_sdk_init()
 
 
@@ -31,7 +31,7 @@ include_directories(${CMAKE_SOURCE_DIR}/lib)
 
 
 add_executable(${PROJECT_NAME}  
-        DispFilaTasks.c 
+        main.c 
         lib/ssd1306.c # Biblioteca para o display OLED
         lib/buzzer.c
         lib/matriz_led.c
